@@ -1,31 +1,61 @@
 #!/usr/bin/env python3
-"""Entry point for the 23 November 2026 front page.
+"""Runner for THE MONDAY GLOBE, Monday 23 November 2026.
 
-Renders the newspaper image with render.build_front_page and writes it to
-/output/entry.png (or to the path given as the first argument). No network,
-no clock: the output is fully deterministic.
+This is only the launcher. The page itself is drawn by render.py
+(build_front_page), which uses PIL and nothing else: no network, no
+clock, no randomness, so every run produces the same PNG bytes.
+
+The destination defaults to /output/entry.png. A first positional
+argument overrides it; otherwise the MAKEFUN_OUTPUT_DIR environment
+variable, when set, supplies the folder instead.
 """
 
-import hashlib
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+FALLBACK_DIR = Path("/output")
+IMAGE_NAME = "entry.png"
 
-from render import build_front_page
+
+def pick_destination(argv):
+    """Decide where the finished page goes."""
+    if len(argv) > 1:
+        given = Path(argv[1])
+        if given.is_dir():
+            return given / IMAGE_NAME
+        return given
+    folder = os.environ.get("MAKEFUN_OUTPUT_DIR")
+    if folder:
+        return Path(folder) / IMAGE_NAME
+    return FALLBACK_DIR / IMAGE_NAME
+
+
+def render_page(destination):
+    """Ask render.py to draw the page and report the file size."""
+    here = Path(__file__).resolve().parent
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    import render
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    render.build_front_page(str(destination))
+    size = destination.stat().st_size
+    print(f"front page done -> {destination} [{size} bytes]")
+    return 0
 
 
 def main(argv):
-    out = argv[1] if len(argv) > 1 else "/output/entry.png"
-    folder = os.path.dirname(out)
-    if folder:
-        os.makedirs(folder, exist_ok=True)
-    build_front_page(out)
-    with open(out, "rb") as fh:
-        digest = hashlib.sha256(fh.read()).hexdigest()
-    size = os.path.getsize(out)
-    print(f"wrote {out}  {size} bytes  sha256={digest}")
-    return 0
+    try:
+        target = pick_destination(argv)
+    except (TypeError, ValueError) as problem:
+        print(f"bad output path: {problem}", file=sys.stderr)
+        return 2
+    try:
+        return render_page(target)
+    except OSError as problem:
+        print(f"could not write the page: {problem}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
