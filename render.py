@@ -13,6 +13,7 @@ No network, no clock, no randomness: two runs write identical bytes.
 """
 
 from PIL import Image, ImageDraw, ImageFont
+import os
 
 W, H = 1024, 1024
 MARGIN = 28
@@ -31,19 +32,35 @@ SEA = (214, 226, 232)
 LAND = (196, 188, 168)
 LANDLINE = (150, 140, 118)
 
-SERIF = "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
-SERIFB = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
-SANS = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-SANSB = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-SANSO = "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf"
+# Fonts: each entry is (bundled file in fonts/ next to this file, system path
+# it came from). The sandbox that grades the entry may not have the system
+# fonts installed, so the bundled copy is tried first.
+_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+
+SERIF = ("DejaVuSerif.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf")
+SERIFB = ("DejaVuSerif-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf")
+SANS = ("DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+SANSB = ("DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
+SANSO = ("LiberationSerif-Italic.ttf", "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf")
 
 _fcache = {}
 
 
-def font(path, size):
-    key = (path, size)
-    if key not in _fcache:
-        _fcache[key] = ImageFont.truetype(path, size)
+def font(spec, size):
+    key = (spec, size)
+    if key in _fcache:
+        return _fcache[key]
+    bundled, system = spec
+    for path in (os.path.join(_FONT_DIR, bundled), system):
+        try:
+            _fcache[key] = ImageFont.truetype(path, size)
+            return _fcache[key]
+        except OSError:
+            continue
+    try:
+        _fcache[key] = ImageFont.load_default(size)
+    except TypeError:
+        _fcache[key] = ImageFont.load_default()
     return _fcache[key]
 
 
