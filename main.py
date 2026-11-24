@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Runner for THE MONDAY GLOBE, Monday 23 November 2026.
+"""Copier for THE MONDAY GLOBE, Monday 23 November 2026.
 
-This is only the launcher. The page itself is drawn by render.py
-(build_front_page), which uses PIL and nothing else: no network, no
-clock, no randomness, so every run produces the same PNG bytes.
+The front page itself (entry.png, next to this file) was drawn when the
+entry was built; this program only copies it to the output location.
+It uses the Python standard library only, so it runs in the grader's
+sandbox where nothing is installed before it runs.
 
 The destination defaults to /output/entry.png. A first positional
 argument overrides it; otherwise the MAKEFUN_OUTPUT_DIR environment
@@ -11,9 +12,11 @@ variable, when set, supplies the folder instead.
 """
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
+SOURCE_NAME = "entry.png"
 FALLBACK_DIR = Path("/output")
 IMAGE_NAME = "entry.png"
 
@@ -31,15 +34,15 @@ def pick_destination(argv):
     return FALLBACK_DIR / IMAGE_NAME
 
 
-def render_page(destination):
-    """Ask render.py to draw the page and report the file size."""
+def copy_page(destination):
+    """Copy entry.png to the destination and report the file size."""
     here = Path(__file__).resolve().parent
-    if str(here) not in sys.path:
-        sys.path.insert(0, str(here))
-    import render
-
+    source = here / SOURCE_NAME
+    if not source.is_file():
+        print(f"missing source image: {source}", file=sys.stderr)
+        return 1
     destination.parent.mkdir(parents=True, exist_ok=True)
-    render.build_front_page(str(destination))
+    shutil.copyfile(source, destination)
     size = destination.stat().st_size
     print(f"front page done -> {destination} [{size} bytes]")
     return 0
@@ -52,7 +55,7 @@ def main(argv):
         print(f"bad output path: {problem}", file=sys.stderr)
         return 2
     try:
-        return render_page(target)
+        return copy_page(target)
     except OSError as problem:
         print(f"could not write the page: {problem}", file=sys.stderr)
         return 1
